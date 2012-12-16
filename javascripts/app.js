@@ -23,29 +23,65 @@ $(document).ready(function() {
   hintIndex = 0,
   lock = false,
   commandDown = false,
-  subredditShortcutJustLaunched = false;
+  subredditShortcutJustLaunched = false,
+
+  infiniteScrollThreshold = 375,
+  permalinkScrollThreshold = 100,
+  earlierPostsPossible = false,
+  laterPostsPossible = true,
+  lastPermalinkPosition = $(document).scrollTop(),
+  shouldCheckScroll = false,
+  shouldScrollDown = false,
+
+  lastPost,
+  firstPost;
+
 
 
 //Initial Load -------------------------------------------------------------------------------
 
-  window.scrollTo(0,0);
+  
+  function redditTimline() {
+    params = getUrlVars();
+    console.log(params);
 
-  // If viewType cookied, set it
-  if($.cookie("viewType")) {
-    $('body')
-      .removeClass('fullview')
-      .removeClass('listview')
-      .addClass($.cookie("viewType"));
+    dataUrl = $('.main').data('url');
+
+    console.log(dataUrl);
+    
+    
+    if (params.after) {
+      dataUrl += "&after=" + params.after;
+      shouldScrollDown = true;
+      earlierTweetsPossible = true;
+    }
+
+
+
+    // If viewType cookied, set it
+    if($.cookie("viewType")) {
+      $('body')
+        .removeClass('fullview')
+        .removeClass('listview')
+        .addClass($.cookie("viewType"));
+    }
+
+    loadJSON();
+
   }
 
-  //Initial JSON load
-  loadJSON();
+  redditTimline();
 
   //JSON -------------------------------------------------------------------------------
 
   // Load data
-  function loadJSON() {
+  function loadJSON(dataUrl) {
     $.getJSON("http://www.reddit.com/"+subdomain+".json?limit=25&after="+afterString+"&jsonp=?", null, function(data) {
+      console.log(data);
+
+      lastPost = $('.main').find('.tweet:last-child');
+      firstPost = $('.main').find('.tweet:first-child');
+      
       $.each(data.data.children, function(i, post) {
         renderPost(post.data);
         afterString = post.data.name;
@@ -59,18 +95,42 @@ $(document).ready(function() {
     });
   }
 
+  function permalink(dataPost) {
+    if (!window.history || !window.history.pushState) {
+      return;
+    }
+
+    urlPath = window.location.pathname;
+
+    if (dataPost) {
+      urlPath += "?after=" + dataPost.data('id');
+    }
+    return window.history.replaceState({}, document.title, urlPath);
+  }
+
+  function updateUrl() {
+
+    // console.log(activePost);
+    
+    // url = null;
+
+    // window.history.replaceState({}, document.title, "&callback=?&max_id=1");
+  }
+
   $(window).scroll(function(){
+    var bottomOfLastPost, scrolledDownEnough, scrolledUpEnough, topOfFirstPost, dataUrl, visibleBottom, _i, _len, _ref, _results;
+
     // Load more JSON from scroll
     if ($(window).scrollTop() >= $(document).height() - $(window).height() - 10){
-      if (navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/iPad/i)) {
-
-      } else {
+      if (!(navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/iPad/i))) {
         if(lock == false) {
           lock = true;
           loader.fadeIn(100);
           loadJSON();
+          updateUrl();
         }
       }
+
     }
     //Control activePost value based on scroll position
     if($(document).scrollTop() > (post.eq(activePost).offset().top-90)) {
@@ -82,6 +142,75 @@ $(document).ready(function() {
       }
     }
     // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90))
+
+    // bottom of the page
+    visibleBottom = $(document).scrollTop() + $(window).height();
+
+    topOfFirstPost = $('.main').find('.post:first-child').offset().top;
+
+    bottomOfLastPost = $('.main').find('.post:last-child').outerHeight() + $('.main').find('.post:last-child').offset().top;
+
+    dataUrl = $('.main').data('url');
+
+    console.log(laterPostsPossible, bottomOfLastPost, visibleBottom, infiniteScrollThreshold);
+
+    if (laterPostsPossible && ((bottomOfLastPost - visibleBottom < infiniteScrollThreshold))) {
+      console.log('is this condition being met?');
+      
+      dataUrl += "&callback=?after=" + lastPost.data('id');
+      loadJSON(dataUrl);
+    };
+
+
+    console.log(earlierPostsPossible, topOfFirstPost, $(document).scrollTop());
+    
+
+    if (earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
+
+      dataUrl += "&callback=?before=" + firstPost.data('id');
+      loadJSON(dataUrl);
+    }
+
+    scrolledDownEnough = $(document).scrollTop() > (lastPermalinkPosition + permalinkScrollThreshold);
+
+    scrolledUpEnough = $(document).scrollTop() < (lastPermalinkPosition + permalinkScrollThreshold);
+
+    $.getJSON('http://www.reddit.com/.json?&jsonp=?', {limit: 25, after: "t3_14x9rv"}, function(json, textStatus) {
+      console.log(json);
+      
+    });
+
+    $.getJSON('http://api.twitter.com/1/statuses/user_timeline.json?screen_name=holman&callback=?&max_id=279260785669197824 ', {}, function(json, textStatus) {
+      console.log(json);
+      
+    });
+
+    
+    
+
+    if (scrolledDownEnough || scrolledUpEnough) {
+      lastPermalinkPosition = $(document).scrollTop();
+
+      _ref = $('.main').find('.post');
+
+      _results = [];
+
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        dataPost = _ref[_i];
+        dataPost = $(dataPost);
+
+        if (dataPost.offset().top >= (lastPermalinkPosition - infiniteScrollThreshold)) {
+          if (dataPost.is(':first-child') && !earlierPostsPossible) {
+            permalink(false)
+          } else {
+            permalink(dataPost)
+          }
+          break;
+        }
+      }
+      return _results;
+    }
+
   });
 
   // Load more JSON from click (tablet/mobile)

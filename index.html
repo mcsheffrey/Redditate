@@ -47,13 +47,13 @@
 	<script type="text/javascript">try{Typekit.load();}catch(e){}</script>
 	<script src='javascripts/jquery-1.5.1.min.js'></script>
 	<script src='javascripts/handlebars.1.0.0.beta.3.js'></script>
-
+	<script src='javascripts/helpers.js'></script>
 
 
 	<!-- HTML template for post
 	================================================== -->
 	<script id="postTemplate" type="text/x-handlebars-template">
-		<div class="post" id="{{name}}">
+		<div class="post" id="{{name}}" data-id="{{id}}">
 			{{#hasThumbnail thumbnail url}}
 				{{thumbnail}}
 			{{/hasThumbnail}}
@@ -158,7 +158,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="main container">
+	<div class="main container" data-url="http://www.reddit.com/.json?limit=25&jsonp=?">
 		<div class="posts"></div>
 		<div class="loadmore-button">
 			Load Next 25
@@ -217,6 +217,6 @@
 <!--
 - Get a tiny carrot next to the current post
 - Browser test
-- Future: Make domain clickable
 - Future: Click to comments opens in a modal
+- Future: Use Imgur API to loop through gallery images
  -->
