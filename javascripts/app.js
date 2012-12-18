@@ -27,12 +27,16 @@ $(document).ready(function() {
 
   infiniteScrollThreshold = 375,
   permalinkScrollThreshold = 100,
-  earlierPostsPossible = false,
+  earlierPostsPossible = true,
   laterPostsPossible = true,
   lastPermalinkPosition = $(document).scrollTop(),
   shouldCheckScroll = false,
   shouldScrollDown = false,
 
+  didScroll,
+  direction = "after",
+  postName,
+  postNameUnsliced,
   lastPost,
   firstPost;
 
@@ -43,20 +47,24 @@ $(document).ready(function() {
   
   function redditTimline() {
     params = getUrlVars();
-    console.log(params);
+    // console.log(params);
 
     dataUrl = $('.main').data('url');
 
-    console.log(dataUrl);
+    // console.log(dataUrl);
     
     
     if (params.after) {
-      dataUrl += "&after=" + params.after;
+
+      postNameUnsliced = params.after;
+      postName = postNameUnsliced.slice(0, -1);
+      direction = "after";
+
+      console.log(postName);      
+
       shouldScrollDown = true;
       earlierTweetsPossible = true;
     }
-
-
 
     // If viewType cookied, set it
     if($.cookie("viewType")) {
@@ -66,7 +74,7 @@ $(document).ready(function() {
         .addClass($.cookie("viewType"));
     }
 
-    loadJSON();
+    loadJSON(direction,postName);
 
   }
 
@@ -75,16 +83,21 @@ $(document).ready(function() {
   //JSON -------------------------------------------------------------------------------
 
   // Load data
-  function loadJSON(dataUrl) {
-    $.getJSON("http://www.reddit.com/"+subdomain+".json?limit=25&after="+afterString+"&jsonp=?", null, function(data) {
-      console.log(data);
+  function loadJSON(direction,postName) {
 
-      lastPost = $('.main').find('.tweet:last-child');
-      firstPost = $('.main').find('.tweet:first-child');
+    query = "http://www.reddit.com/"+subdomain+".json?limit=25&" + direction + "=" + postName + "&jsonp=?";
+
+    console.log(query);
+    
+    
+    $.getJSON(query, null, function(data) {
+      console.log(data);
       
       $.each(data.data.children, function(i, post) {
         renderPost(post.data);
         afterString = post.data.name;
+        // console.log(afterString);
+        
       });
     }).complete(function() {
       post = $('.post');
@@ -103,7 +116,7 @@ $(document).ready(function() {
     urlPath = window.location.pathname;
 
     if (dataPost) {
-      urlPath += "?after=" + dataPost.data('id');
+      urlPath += "?after=" + dataPost.data('name');
     }
     return window.history.replaceState({}, document.title, urlPath);
   }
@@ -118,7 +131,28 @@ $(document).ready(function() {
   }
 
   $(window).scroll(function(){
-    var bottomOfLastPost, scrolledDownEnough, scrolledUpEnough, topOfFirstPost, dataUrl, visibleBottom, _i, _len, _ref, _results;
+    didScroll = true;
+  });
+
+  // Every 250ms, check if the page scrolled
+  setInterval(function(){
+    if (didScroll) {
+      fireScroll();
+      didScroll = false;
+    }
+  }, 250);
+
+  function fireScroll() {
+    var bottomOfLastPost, 
+    scrolledDownEnough, 
+    scrolledUpEnough, 
+    topOfFirstPost, 
+    dataUrl, 
+    visibleBottom, 
+    _i, 
+    _len, 
+    _ref, 
+    _results;
 
     // Load more JSON from scroll
     if ($(window).scrollTop() >= $(document).height() - $(window).height() - 10){
@@ -152,38 +186,52 @@ $(document).ready(function() {
 
     dataUrl = $('.main').data('url');
 
-    console.log(laterPostsPossible, bottomOfLastPost, visibleBottom, infiniteScrollThreshold);
+    // console.log(laterPostsPossible, bottomOfLastPost, visibleBottom, infiniteScrollThreshold);
 
     if (laterPostsPossible && ((bottomOfLastPost - visibleBottom < infiniteScrollThreshold))) {
-      console.log('is this condition being met?');
+      // direction = 'after';
+      postNameLast = $('.main').find('.post:last-child').data('name');
+
+      direction = "after";
+
+      // console.log(postNameUnsliced, postName);
       
-      dataUrl += "&callback=?after=" + lastPost.data('id');
-      loadJSON(dataUrl);
+      // params = getUrlVars();
+      // postNameUnsliced = params.after;
+      // postName = postNameUnsliced.slice(0, -1);
+
+      console.log(postNameLast);
+      
+      loadJSON(direction,postNameLast);
     };
 
 
-    console.log(earlierPostsPossible, topOfFirstPost, $(document).scrollTop());
+    // console.log(earlierPostsPossible, topOfFirstPost, $(document).scrollTop());
     
 
     if (earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
+      // direction = 'before';
 
-      dataUrl += "&callback=?before=" + firstPost.data('id');
-      loadJSON(dataUrl);
+      direction = "before";
+
+      postName = $('.main').find('.post:first-child').data('name');
+
+      loadJSON(direction,postName);
     }
 
     scrolledDownEnough = $(document).scrollTop() > (lastPermalinkPosition + permalinkScrollThreshold);
 
     scrolledUpEnough = $(document).scrollTop() < (lastPermalinkPosition + permalinkScrollThreshold);
 
-    $.getJSON('http://www.reddit.com/.json?&jsonp=?', {limit: 25, after: "t3_14x9rv"}, function(json, textStatus) {
-      console.log(json);
+    // $.getJSON('http://www.reddit.com/.json?&jsonp=?', {limit: 25, after: "t3_14x9rv"}, function(json, textStatus) {
+    //   console.log(json);
       
-    });
+    // });
 
-    $.getJSON('http://api.twitter.com/1/statuses/user_timeline.json?screen_name=holman&callback=?&max_id=279260785669197824 ', {}, function(json, textStatus) {
-      console.log(json);
+    // $.getJSON('http://api.twitter.com/1/statuses/user_timeline.json?screen_name=holman&callback=?&max_id=279260785669197824 ', {}, function(json, textStatus) {
+    //   console.log(json);
       
-    });
+    // });
 
     
     
@@ -211,7 +259,7 @@ $(document).ready(function() {
       return _results;
     }
 
-  });
+  }
 
   // Load more JSON from click (tablet/mobile)
   $('.loadmore-button').click(function() {
@@ -228,7 +276,16 @@ $(document).ready(function() {
     var templateSource   = $("#postTemplate").html();
     var postTemplate = Handlebars.compile(templateSource);
     var postHTML = postTemplate(postData);
-    posts.append(postHTML);
+    if (direction === "after") {
+      console.log('append');
+      
+      posts.append(postHTML);
+    } else {
+      console.log('prepend');
+      
+      posts.prepend(postHTML);
+    }
+    
   }
 
   //Create readable title from ?r= subdomain value
