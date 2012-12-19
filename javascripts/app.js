@@ -27,7 +27,7 @@ $(document).ready(function() {
 
   infiniteScrollThreshold = 375,
   permalinkScrollThreshold = 100,
-  earlierPostsPossible = true,
+  earlierPostsPossible = false,
   laterPostsPossible = true,
   lastPermalinkPosition = $(document).scrollTop(),
   shouldCheckScroll = false,
@@ -38,7 +38,10 @@ $(document).ready(function() {
   postName,
   postNameUnsliced,
   lastPost,
-  firstPost;
+  firstPost,
+
+
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 
 
@@ -46,13 +49,19 @@ $(document).ready(function() {
 
   
   function redditTimline() {
-    params = getUrlVars();
-    // console.log(params);
+    var params,
+        dataUrl;
 
+    params = getUrlVars();
     dataUrl = $('.main').data('url');
 
     // console.log(dataUrl);
-    
+    $wrapper = $('.main');
+    firstPost = $('.main').find('.post:first-child');
+    LastPost = $('.main').find('.post:last-child');
+
+    shouldCheckScroll = false;
+    lastPermalinkPosition = $(document).scrollTop();
     
     if (params.after) {
 
@@ -121,28 +130,15 @@ $(document).ready(function() {
     return window.history.replaceState({}, document.title, urlPath);
   }
 
-  function updateUrl() {
+    $(window).scroll(__bind(function() {
+      return shouldCheckScroll = true;
+    }, this));
 
-    // console.log(activePost);
-    
-    // url = null;
+    every(250, __bind(function() {
+      return didScroll();
+    }, this));
 
-    // window.history.replaceState({}, document.title, "&callback=?&max_id=1");
-  }
-
-  $(window).scroll(function(){
-    didScroll = true;
-  });
-
-  // Every 250ms, check if the page scrolled
-  setInterval(function(){
-    if (didScroll) {
-      fireScroll();
-      didScroll = false;
-    }
-  }, 250);
-
-  function fireScroll() {
+  function didScroll() {
     var bottomOfLastPost, 
     scrolledDownEnough, 
     scrolledUpEnough, 
@@ -155,27 +151,31 @@ $(document).ready(function() {
     _results;
 
     // Load more JSON from scroll
-    if ($(window).scrollTop() >= $(document).height() - $(window).height() - 10){
-      if (!(navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/iPad/i))) {
-        if(lock == false) {
-          lock = true;
-          loader.fadeIn(100);
-          loadJSON();
-          updateUrl();
-        }
-      }
+    // if ($(window).scrollTop() >= $(document).height() - $(window).height() - 10){
+    //   if (!(navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/iPad/i))) {
+    //     if(lock == false) {
+          
+    //       loadJSON();
+    //       updateUrl();
+    //     }
+    //   }
 
-    }
+    // }
+
     //Control activePost value based on scroll position
-    if($(document).scrollTop() > (post.eq(activePost).offset().top-90)) {
-      activePost++
+    // if($(document).scrollTop() > (post.eq(activePost).offset().top-90)) {
+    //   activePost++
+    // }
+    // if($(document).scrollTop() < (post.eq(activePost-1).offset().top-90)) {
+    //   if(activePost-1 > 0) {
+    //     activePost--
+    //   }
+    // }
+    // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90));
+
+    if (!shouldCheckScroll) {
+      return;
     }
-    if($(document).scrollTop() < (post.eq(activePost-1).offset().top-90)) {
-      if(activePost-1 > 0) {
-        activePost--
-      }
-    }
-    // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90))
 
     // bottom of the page
     visibleBottom = $(document).scrollTop() + $(window).height();
@@ -184,56 +184,24 @@ $(document).ready(function() {
 
     bottomOfLastPost = $('.main').find('.post:last-child').outerHeight() + $('.main').find('.post:last-child').offset().top;
 
-    dataUrl = $('.main').data('url');
-
-    // console.log(laterPostsPossible, bottomOfLastPost, visibleBottom, infiniteScrollThreshold);
 
     if (laterPostsPossible && ((bottomOfLastPost - visibleBottom < infiniteScrollThreshold))) {
-      // direction = 'after';
-      postNameLast = $('.main').find('.post:last-child').data('name');
 
+      postName = $('.main').find('.post:last-child').data('name');
       direction = "after";
-
-      // console.log(postNameUnsliced, postName);
-      
-      // params = getUrlVars();
-      // postNameUnsliced = params.after;
-      // postName = postNameUnsliced.slice(0, -1);
-
-      console.log(postNameLast);
-      
-      loadJSON(direction,postNameLast);
+      loadJSON(direction,postName);
     };
 
-
-    // console.log(earlierPostsPossible, topOfFirstPost, $(document).scrollTop());
-    
-
     if (earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
-      // direction = 'before';
 
       direction = "before";
-
       postName = $('.main').find('.post:first-child').data('name');
-
       loadJSON(direction,postName);
+
     }
 
     scrolledDownEnough = $(document).scrollTop() > (lastPermalinkPosition + permalinkScrollThreshold);
-
     scrolledUpEnough = $(document).scrollTop() < (lastPermalinkPosition + permalinkScrollThreshold);
-
-    // $.getJSON('http://www.reddit.com/.json?&jsonp=?', {limit: 25, after: "t3_14x9rv"}, function(json, textStatus) {
-    //   console.log(json);
-      
-    // });
-
-    // $.getJSON('http://api.twitter.com/1/statuses/user_timeline.json?screen_name=holman&callback=?&max_id=279260785669197824 ', {}, function(json, textStatus) {
-    //   console.log(json);
-      
-    // });
-
-    
     
 
     if (scrolledDownEnough || scrolledUpEnough) {
@@ -273,16 +241,32 @@ $(document).ready(function() {
 
   // Render Post with Handlebars
   function renderPost(postData) {
-    var templateSource   = $("#postTemplate").html();
-    var postTemplate = Handlebars.compile(templateSource);
-    var postHTML = postTemplate(postData);
+    console.log(postData);
+    
+
+    var context,
+        created_at,
+        rendered,
+        scrollOffset,
+        templateSource   = $("#postTemplate").html(),
+        postTemplate = Handlebars.compile(templateSource),
+        postHTML = postTemplate(postData);
+
     if (direction === "after") {
-      console.log('append');
       
       posts.append(postHTML);
     } else {
-      console.log('prepend');
+      // If we're prepending posts, we want to reverse the order
+      postData = postData.reverse();
       
+      // Can we get earlier tweets (true/false)
+      earlierTweetsPossible = postData.length > 0;
+
+      scrollOffset = $(window).scrollTop() + firstPost.offset().top;
+      scrollOffset -= $('.main').find('.post:first-child').offset().top;
+
+      $(window).scrollTop(scrollOffset);
+
       posts.prepend(postHTML);
     }
     
