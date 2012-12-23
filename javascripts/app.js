@@ -31,14 +31,12 @@ $(document).ready(function() {
   laterPostsPossible = true,
   lastPermalinkPosition = $(document).scrollTop(),
   shouldCheckScroll = false,
-  shouldScrollDown = false,
+  shouldScrollDown,
 
   didScroll,
   direction = "after",
   postName,
   postNameUnsliced,
-  lastPost,
-  firstPost,
 
 
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
@@ -56,23 +54,30 @@ $(document).ready(function() {
     dataUrl = $('.main').data('url');
 
     // console.log(dataUrl);
-    $wrapper = $('.main');
-    firstPost = $('.main').find('.post:first-child');
-    LastPost = $('.main').find('.post:last-child');
 
     shouldCheckScroll = false;
+
     lastPermalinkPosition = $(document).scrollTop();
+
+    $(window).scroll(__bind(function() {
+      return shouldCheckScroll = true;
+    }, this));
+
+    every(250, __bind(function() {
+      return didScroll();
+    }, this));
+
+    shouldScrollDown = false;
     
     if (params.after) {
 
       postNameUnsliced = params.after;
       postName = postNameUnsliced.slice(0, -1);
-      direction = "after";
 
       console.log(postName);      
 
       shouldScrollDown = true;
-      earlierTweetsPossible = true;
+      earlierPostsPossible = true;
     }
 
     // If viewType cookied, set it
@@ -94,26 +99,34 @@ $(document).ready(function() {
   // Load data
   function loadJSON(direction,postName) {
 
+    lock = true;
+
     query = "http://www.reddit.com/"+subdomain+".json?limit=25&" + direction + "=" + postName + "&jsonp=?";
 
     console.log(query);
     
     
     $.getJSON(query, null, function(data) {
-      console.log(data);
       
-      $.each(data.data.children, function(i, post) {
-        renderPost(post.data);
-        afterString = post.data.name;
-        // console.log(afterString);
+      // $.each(data.data.children, function(i, post) {
+      //   renderPost(post.data);
+      //   afterString = post.data.name;
+      //   // console.log(afterString);
         
-      });
+      // });
+    renderPost(post);
+
     }).complete(function() {
       post = $('.post');
+      console.log(post);
+      
       classifyImages();
       loader.fadeOut(100);
       loadMore.removeClass('loading');
       lock = false;
+
+      $lastPost = $('.main .post:last-child');
+      
     });
   }
 
@@ -130,13 +143,11 @@ $(document).ready(function() {
     return window.history.replaceState({}, document.title, urlPath);
   }
 
-    $(window).scroll(__bind(function() {
-      return shouldCheckScroll = true;
-    }, this));
-
-    every(250, __bind(function() {
-      return didScroll();
-    }, this));
+  // So we've scrolled down the page, do we need to load more posts? This
+  // analyzes what posts are visible and figures out if we need to load more
+  // posts (either earlier ones or later ones).
+  // 
+  // Returns nothing.
 
   function didScroll() {
     var bottomOfLastPost, 
@@ -182,17 +193,23 @@ $(document).ready(function() {
 
     topOfFirstPost = $('.main').find('.post:first-child').offset().top;
 
-    bottomOfLastPost = $('.main').find('.post:last-child').outerHeight() + $('.main').find('.post:last-child').offset().top;
+    bottomOfLastPost = $lastPost.outerHeight() + $lastPost.offset().top;
 
 
-    if (laterPostsPossible && ((bottomOfLastPost - visibleBottom < infiniteScrollThreshold))) {
+    // If later posts are available fetch new data
+    if (!lock && laterPostsPossible && ((bottomOfLastPost - visibleBottom < infiniteScrollThreshold))) {
 
-      postName = $('.main').find('.post:last-child').data('name');
+      loader.fadeIn(100);
+
+      postName = $lastPost.data('name');
       direction = "after";
       loadJSON(direction,postName);
     };
 
-    if (earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
+    // If earlier posts are available fetch new data
+    if (!lock && earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
+
+      loader.fadeIn(100);
 
       direction = "before";
       postName = $('.main').find('.post:first-child').data('name');
@@ -217,6 +234,9 @@ $(document).ready(function() {
 
         if (dataPost.offset().top >= (lastPermalinkPosition - infiniteScrollThreshold)) {
           if (dataPost.is(':first-child') && !earlierPostsPossible) {
+
+            console.log(earlierPostsPossible);
+            
             permalink(false)
           } else {
             permalink(dataPost)
@@ -241,8 +261,6 @@ $(document).ready(function() {
 
   // Render Post with Handlebars
   function renderPost(postData) {
-    console.log(postData);
-    
 
     var context,
         created_at,
@@ -250,12 +268,16 @@ $(document).ready(function() {
         scrollOffset,
         templateSource   = $("#postTemplate").html(),
         postTemplate = Handlebars.compile(templateSource),
-        postHTML = postTemplate(postData);
+        postHTML = postTemplate(postData),
+        $wrapper = $('.main');
+        
 
     if (direction === "after") {
       
       posts.append(postHTML);
+      
     } else {
+
       // If we're prepending posts, we want to reverse the order
       postData = postData.reverse();
       
