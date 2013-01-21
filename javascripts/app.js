@@ -12,7 +12,7 @@ $(document).ready(function() {
 
   //Global Vars -----------------------------------------------------
 
-  var posts = $('.posts'),
+  var posts = $('#posts'),
   afterString,
   subdomain = readParams('r'),
   loader = $('.wash'),
@@ -107,14 +107,11 @@ $(document).ready(function() {
     
     
     $.getJSON(query, null, function(data) {
-      
-      // $.each(data.data.children, function(i, post) {
-      //   renderPost(post.data);
-      //   afterString = post.data.name;
-      //   // console.log(afterString);
-        
-      // });
-    renderPost(post);
+
+      renderPost(data.data.children);
+
+      // afterString = post.data.name;
+      // console.log(afterString);
 
     }).complete(function() {
       post = $('.post');
@@ -150,15 +147,15 @@ $(document).ready(function() {
   // Returns nothing.
 
   function didScroll() {
-    var bottomOfLastPost, 
-    scrolledDownEnough, 
-    scrolledUpEnough, 
-    topOfFirstPost, 
-    dataUrl, 
-    visibleBottom, 
-    _i, 
-    _len, 
-    _ref, 
+    var bottomOfLastPost,
+    scrolledDownEnough,
+    scrolledUpEnough,
+    topOfFirstPost,
+    dataUrl,
+    visibleBottom,
+    _i,
+    _len,
+    _ref,
     _results;
 
     // Load more JSON from scroll
@@ -204,7 +201,7 @@ $(document).ready(function() {
       postName = $lastPost.data('name');
       direction = "after";
       loadJSON(direction,postName);
-    };
+    }
 
     // If earlier posts are available fetch new data
     if (!lock && earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
@@ -237,9 +234,9 @@ $(document).ready(function() {
 
             console.log(earlierPostsPossible);
             
-            permalink(false)
+            permalink(false);
           } else {
-            permalink(dataPost)
+            permalink(dataPost);
           }
           break;
         }
@@ -251,8 +248,8 @@ $(document).ready(function() {
 
   // Load more JSON from click (tablet/mobile)
   $('.loadmore-button').click(function() {
-    if(lock == false) {
-      loadMore.addClass('loading')
+    if(lock === false) {
+      loadMore.addClass('loading');
       loadJSON();
     }
   });
@@ -266,37 +263,56 @@ $(document).ready(function() {
         created_at,
         rendered,
         scrollOffset,
-        templateSource   = $("#postTemplate").html(),
-        postTemplate = Handlebars.compile(templateSource),
-        postHTML = postTemplate(postData),
+        templateSource,
+        postTemplate,
+        postHTML,
         $wrapper = $('.main');
-        
+    
 
     if (direction === "after") {
-      
-      posts.append(postHTML);
+
+      $.each(postData, function(i, post) {
+
+        templateSource = $("#postTemplate").html();
+        postTemplate = Handlebars.compile(templateSource);
+        postHTML = postTemplate(post.data);
+
+        posts.append(postHTML);
+          
+      });
       
     } else {
 
-      // If we're prepending posts, we want to reverse the order
-      postData = postData.reverse();
-      
       // Can we get earlier tweets (true/false)
       earlierTweetsPossible = postData.length > 0;
+
+      // If we're prepending posts, we want to reverse the order
+      postData = postData.reverse();
+
+      
+
+      $.each(postData, function(i, post) {
+
+        postTemplate = Handlebars.compile(templateSource);
+        postHTML = postTemplate(post.data);
+
+        posts.prepend(postHTML);
+          
+      });
 
       scrollOffset = $(window).scrollTop() + firstPost.offset().top;
       scrollOffset -= $('.main').find('.post:first-child').offset().top;
 
       $(window).scrollTop(scrollOffset);
 
-      posts.prepend(postHTML);
+      
     }
     
   }
 
   //Create readable title from ?r= subdomain value
-  if(!subdomain == "") {
-    var readableSubdomain = subdomain.replace("r/", "")
+  if (!subdomain === "") {
+    var readableSubdomain = subdomain.replace("r/", "");
     $('.logo .subreddit .title').text(readableSubdomain);
     document.title = "Redditate: "+readableSubdomain;
   }
