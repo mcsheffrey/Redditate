@@ -23,28 +23,49 @@ $(document).ready(function() {
   hintIndex = 0,
   lock = false,
   commandDown = false,
-  subredditShortcutJustLaunched = false;
+  subredditShortcutJustLaunched = false,
+  params = getUrlVars(),
+  postName;
 
 
 //Initial Load -------------------------------------------------------------------------------
 
-  window.scrollTo(0,0);
+  function initRedditate() {
 
-  // If viewType cookied, set it
-  if($.cookie("viewType")) {
-    $('body')
-      .removeClass('fullview')
-      .removeClass('listview')
-      .addClass($.cookie("viewType"));
+    // Hide Safari navbar
+    window.scrollTo(0,0);
+
+    // If viewType cookied, set it
+    if($.cookie("viewType")) {
+      $('body')
+        .removeClass('fullview')
+        .removeClass('listview')
+        .addClass($.cookie("viewType"));
+    }
+
+    console.log(params);
+    
+  
+    // retrieve postname from URL
+    if (params.post) {
+      postNameUnsliced = params.post;
+      postName = postNameUnsliced.slice(0, -1); 
+    }
+
+    //Initial JSON load
+    loadJSON(postName);
   }
 
-  //Initial JSON load
-  loadJSON();
+  initRedditate();
 
   //JSON -------------------------------------------------------------------------------
 
-  // Load data
-  function loadJSON() {
+  /*
+   * Hit Reddit API for some sweet JSON
+   *
+   * postName (String)
+   */
+  function loadJSON(postName) {
     $.getJSON("http://www.reddit.com/"+subdomain+".json?limit=25&after="+afterString+"&jsonp=?", null, function(data) {
       $.each(data.data.children, function(i, post) {
         renderPost(post.data);
@@ -59,7 +80,7 @@ $(document).ready(function() {
     });
   }
 
-  $(window).scroll(function(){
+  $(window).scroll( $.throttle( 250, function(){
     // Load more JSON from scroll
     if ($(window).scrollTop() >= $(document).height() - $(window).height() - 10){
       if (navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/iPad/i)) {
@@ -81,8 +102,29 @@ $(document).ready(function() {
         activePost--
       }
     }
+    console.log(post.eq(activePost).data('name'));
+    permalink(post.eq(activePost).data('name'))
+    
     // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90))
-  });
+  }));
+
+  /*
+   * Updated URL with current post name
+   *
+   * postName (String)
+   */
+  function permalink(postName) {
+    if (!window.history || !window.history.pushState) {
+      return;
+    }
+
+    urlPath = window.location.pathname;
+
+    if (postName) {
+      urlPath += "?post=" + postName;
+    }
+    return window.history.replaceState({}, document.title, urlPath);
+  }
 
   // Load more JSON from click (tablet/mobile)
   $('.loadmore-button').click(function() {
@@ -103,8 +145,6 @@ $(document).ready(function() {
     // If it's an imgur album make a request to the imgur API
     if (postData.url.indexOf('imgur.com/a/') >= 0) {
       fetchImgurAlbum(postData);
-      console.log('album');
-      
     } 
 
       posts.append(postHTML);
