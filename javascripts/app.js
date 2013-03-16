@@ -7,6 +7,8 @@
 * 10/01/2011
 */
 
+// TODO figure out way to check if there are any more posts
+
 $(document).ready(function() {
 
 
@@ -53,29 +55,15 @@ $(document).ready(function() {
     params = getUrlVars();
     dataUrl = $('.main').data('url');
 
-    // console.log(dataUrl);
-
-    shouldCheckScroll = false;
-
     lastPermalinkPosition = $(document).scrollTop();
 
-    $(window).scroll(__bind(function() {
-      return shouldCheckScroll = true;
-    }, this));
-
-    every(250, __bind(function() {
-      return didScroll();
-    }, this));
-
-    shouldScrollDown = false;
+    // Bind didScroll() to throttled window scroll event
+    $(window).scroll( $.throttle( 250, didScroll ) );
     
+    // retrieve postname from URL
     if (params.after) {
-
       postNameUnsliced = params.after;
-      postName = postNameUnsliced.slice(0, -1);
-
-      console.log(postName);      
-
+      postName = postNameUnsliced.slice(0, -1); 
       shouldScrollDown = true;
       earlierPostsPossible = true;
     }
@@ -98,20 +86,18 @@ $(document).ready(function() {
 
   // Load data
   function loadJSON(direction,postName) {
-
     lock = true;
-
     query = "http://www.reddit.com/"+subdomain+".json?limit=25&" + direction + "=" + postName + "&jsonp=?";
 
-    console.log(query);
-    
-    
     $.getJSON(query, null, function(data) {
 
-      renderPost(data.data.children);
+      if (data.data.after == null) {
+        earlierPostsPossible = false;
+      }
 
-      // afterString = post.data.name;
-      // console.log(afterString);
+      console.log(data);
+
+      renderPost(data.data.children);
 
     }).complete(function() {
       post = $('.post');
@@ -122,6 +108,7 @@ $(document).ready(function() {
       loadMore.removeClass('loading');
       lock = false;
 
+      $firstPost = $('.main .post:first-child');
       $lastPost = $('.main .post:last-child');
       
     });
@@ -181,14 +168,10 @@ $(document).ready(function() {
     // }
     // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90));
 
-    if (!shouldCheckScroll) {
-      return;
-    }
-
     // bottom of the page
     visibleBottom = $(document).scrollTop() + $(window).height();
 
-    topOfFirstPost = $('.main').find('.post:first-child').offset().top;
+    topOfFirstPost = $firstPost.offset().top;
 
     bottomOfLastPost = $lastPost.outerHeight() + $lastPost.offset().top;
 
@@ -205,11 +188,12 @@ $(document).ready(function() {
 
     // If earlier posts are available fetch new data
     if (!lock && earlierPostsPossible && (topOfFirstPost >= $(document).scrollTop())) {
-
+      console.log('load earlier posts');
+      
       loader.fadeIn(100);
 
+      postName = $firstPost.data('name');
       direction = "before";
-      postName = $('.main').find('.post:first-child').data('name');
       loadJSON(direction,postName);
 
     }
@@ -281,10 +265,13 @@ $(document).ready(function() {
           
       });
       
-    } else {
+    } else if (direction === "before") {
+
+      console.log('before');
+      
 
       // Can we get earlier tweets (true/false)
-      earlierTweetsPossible = postData.length > 0;
+      earlierPostsPossible = postData.length > 0;
 
       // If we're prepending posts, we want to reverse the order
       postData = postData.reverse();
@@ -292,6 +279,7 @@ $(document).ready(function() {
       
 
       $.each(postData, function(i, post) {
+        templateSource = $("#postTemplate").html();
 
         postTemplate = Handlebars.compile(templateSource);
         postHTML = postTemplate(post.data);
@@ -300,13 +288,19 @@ $(document).ready(function() {
           
       });
 
-      scrollOffset = $(window).scrollTop() + firstPost.offset().top;
+      scrollOffset = $(window).scrollTop() + $firstPost.offset().top;
       scrollOffset -= $('.main').find('.post:first-child').offset().top;
-
-      $(window).scrollTop(scrollOffset);
+      console.log('scroll offset' + scrollOffset);
+      setTimeout($(window).scrollTop(scrollOffset), 1000);
 
       
+    } else {
+      console.log('???');
+      
+      return false;
     }
+
+
     
   }
 
