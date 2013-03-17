@@ -52,6 +52,9 @@ $(document).ready(function() {
       postName = postNameUnsliced.slice(0, -1); 
     }
 
+    console.log(postName);
+    
+
     //Initial JSON load
     loadJSON(postName);
   }
@@ -66,7 +69,12 @@ $(document).ready(function() {
    * postName (String)
    */
   function loadJSON(postName) {
-    $.getJSON("http://www.reddit.com/"+subdomain+".json?limit=25&after="+afterString+"&jsonp=?", null, function(data) {
+    query = "http://www.reddit.com/"+subdomain+".json?limit=25&after="+postName+"&jsonp=?";
+    console.log(query);
+    
+    $.getJSON(query, null, function(data) {
+      console.log(data);
+      
       $.each(data.data.children, function(i, post) {
         renderPost(post.data);
         afterString = post.data.name;
@@ -105,7 +113,7 @@ $(document).ready(function() {
     console.log(post.eq(activePost).data('name'));
     permalink(post.eq(activePost).data('name'))
     
-    // console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90))
+    console.log("activePost: "+activePost+", documentScrollTop: "+$(document).scrollTop()+", activePost offset top: "+(post.eq(activePost).offset().top-90))
   }));
 
   /*
